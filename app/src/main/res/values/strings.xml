@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Marketplace Auto-Reply</string>
+    <string name="accessibility_service_description">This service allows the app to automatically send replies to Marketplace messages in Facebook Messenger. It types your pre-set message and clicks the send button.</string>
+</resources>

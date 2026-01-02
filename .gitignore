@@ -1,0 +1,18 @@
+# Gradle files
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Local configuration file
+local.properties
+
+# IDE files
+.idea/
+*.iml
+
+# Keystore (keep separate)
+*.jks
+
+# OS files
+.DS_Store
+Thumbs.db
