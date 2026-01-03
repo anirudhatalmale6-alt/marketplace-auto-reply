@@ -32,10 +32,6 @@ class MessengerNotificationListener : NotificationListenerService() {
     companion object {
         private const val TAG = "NotifListener"
 
-        // Delay range in milliseconds (8-12 seconds)
-        private const val MIN_DELAY_MS = 8000L
-        private const val MAX_DELAY_MS = 12000L
-
         // Package names for Messenger (original and common clones)
         val MESSENGER_PACKAGES = setOf(
             "com.facebook.orca",           // Original Messenger
@@ -123,6 +119,17 @@ class MessengerNotificationListener : NotificationListenerService() {
             return
         }
 
+        // Skip chat head notifications - DO NOT interact with chat heads
+        val lowerTitle = title.lowercase()
+        val lowerText = text.lowercase()
+        if (lowerTitle.contains("chat head") || lowerTitle.contains("chathead") ||
+            lowerTitle.contains("bubble") || lowerText.contains("chat head") ||
+            lowerText.contains("chathead") || lowerText.contains("active chat") ||
+            text.contains("Chat heads active") || title.contains("Chat heads")) {
+            AppLogger.info(TAG, "Skipping chat heads notification")
+            return
+        }
+
         AppLogger.info(TAG, "Message from: $title", showToast = true)
 
         // Create identifier for this sender
@@ -156,11 +163,15 @@ class MessengerNotificationListener : NotificationListenerService() {
             return
         }
 
-        // Get reply message
-        val replyMessage = app.preferencesManager.replyMessage.first()
+        // Get random reply message from list
+        val replyMessages = app.preferencesManager.replyMessages.first()
+        val replyMessage = replyMessages.randomOrNull() ?: "Hi! Thanks for your interest."
+        AppLogger.info(TAG, "Selected reply: ${replyMessage.take(30)}...")
 
-        // Random delay (8-12 seconds)
-        val delayMs = Random.nextLong(MIN_DELAY_MS, MAX_DELAY_MS + 1)
+        // Get configurable delay range
+        val minDelay = app.preferencesManager.minDelaySeconds.first()
+        val maxDelay = app.preferencesManager.maxDelaySeconds.first()
+        val delayMs = Random.nextLong(minDelay * 1000L, (maxDelay + 1) * 1000L)
         AppLogger.info(TAG, "Waiting ${delayMs/1000}s...", showToast = true)
         delay(delayMs)
 
@@ -261,17 +272,34 @@ class MessengerNotificationListener : NotificationListenerService() {
     }
 
     private fun isMessengerPackage(packageName: String): Boolean {
+        val pkg = packageName.lowercase()
+
         // Check exact matches
         if (packageName in MESSENGER_PACKAGES) return true
 
-        // Check for clone/dual app patterns
-        if (packageName.startsWith("com.facebook.orca")) return true
-        if (packageName.startsWith("com.facebook.orcb")) return true  // Clone app variant
-        if (packageName.startsWith("com.facebook.orcc")) return true  // Another clone variant
-        if (packageName.startsWith("com.facebook.mlite")) return true
-        if (packageName.contains("facebook") && packageName.contains("orca")) return true
-        if (packageName.contains("facebook") && packageName.contains("orcb")) return true
-        if (packageName.contains("messenger")) return true
+        // Dynamic detection for ANY Messenger clone
+        // Pattern 1: Any package starting with com.facebook.orc (orca, orcb, orcc, orcd, etc.)
+        if (pkg.startsWith("com.facebook.orc")) return true
+
+        // Pattern 2: Any package containing "messenger"
+        if (pkg.contains("messenger")) return true
+
+        // Pattern 3: Facebook Lite variants
+        if (pkg.startsWith("com.facebook.mlite")) return true
+        if (pkg.contains("facebook") && pkg.contains("lite")) return true
+
+        // Pattern 4: Clone app patterns (Parallel Space, Dual Space, etc.)
+        // These often wrap packages or add suffixes
+        if (pkg.contains("facebook.orca")) return true
+        if (pkg.contains("facebook.orc")) return true
+
+        // Pattern 5: Common clone app prefixes/suffixes
+        if (pkg.contains("clone") && pkg.contains("facebook")) return true
+        if (pkg.contains("dual") && pkg.contains("facebook")) return true
+        if (pkg.contains("parallel") && pkg.contains("facebook")) return true
+
+        // Pattern 6: Generic - any facebook package with messaging capability
+        // Check notification category as backup (handled elsewhere)
 
         return false
     }

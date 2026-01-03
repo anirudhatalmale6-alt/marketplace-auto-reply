@@ -24,18 +24,20 @@ object NotificationReplyHelper {
     fun sendDirectReply(context: Context, sbn: StatusBarNotification, message: String): Boolean {
         val notification = sbn.notification
 
-        // Try to find reply action in wearable extender first (more reliable)
-        val wearableReplyAction = findWearableReplyAction(notification)
-        if (wearableReplyAction != null) {
-            AppLogger.info(TAG, "Found wearable reply action", showToast = true)
-            return executeReplyAction(context, wearableReplyAction, message)
-        }
-
-        // Try to find reply action in notification actions
+        // Try standard notification actions FIRST (works better on some devices like Samsung)
         val replyAction = findReplyAction(notification)
         if (replyAction != null) {
-            AppLogger.info(TAG, "Found notification reply action", showToast = true)
-            return executeReplyAction(context, replyAction, message)
+            AppLogger.info(TAG, "Trying standard reply action...", showToast = true)
+            val success = executeReplyAction(context, replyAction, message)
+            if (success) return true
+        }
+
+        // Try wearable extender actions as fallback
+        val wearableReplyAction = findWearableReplyAction(notification)
+        if (wearableReplyAction != null) {
+            AppLogger.info(TAG, "Trying wearable reply action...", showToast = true)
+            val success = executeReplyAction(context, wearableReplyAction, message)
+            if (success) return true
         }
 
         AppLogger.warn(TAG, "No reply action found in notification")
@@ -107,34 +109,42 @@ object NotificationReplyHelper {
 
     /**
      * Execute the reply action with the given message
+     * Uses multiple approaches to ensure compatibility with different devices/apps
      */
     private fun executeReplyAction(context: Context, actionData: ReplyActionData, message: String): Boolean {
         try {
-            // Create intent and bundle for the reply
+            // Create a new Intent - don't add any extra flags that might interfere
             val intent = Intent()
+
+            // Create bundle with the reply text
             val bundle = Bundle()
 
             // Fill all remote inputs with the message
             for (remoteInput in actionData.remoteInputs) {
-                bundle.putCharSequence(remoteInput.resultKey, message)
-                AppLogger.info(TAG, "Setting remote input key: ${remoteInput.resultKey}")
+                val key = remoteInput.resultKey
+                bundle.putCharSequence(key, message)
+                AppLogger.info(TAG, "RemoteInput key: $key")
             }
 
-            // Add the remote input bundle to the intent
+            // Add the remote input results to the intent
             RemoteInput.addResultsToIntent(actionData.remoteInputs.toTypedArray(), intent, bundle)
 
-            // Use FLAG_UPDATE_CURRENT to allow the RemoteInput to be added
-            // Send with the fill-in intent containing the reply data
-            actionData.pendingIntent.send(context, 0, intent, null, null)
+            // Set the source as free form input (user typed it)
+            RemoteInput.setResultsSource(intent, RemoteInput.SOURCE_FREE_FORM_INPUT)
 
-            AppLogger.info(TAG, "Reply sent via notification action!", showToast = true)
+            AppLogger.info(TAG, "Sending PendingIntent...")
+
+            // Send the pending intent with the reply data
+            actionData.pendingIntent.send(context, 0, intent)
+
+            AppLogger.info(TAG, "Reply sent via notification!", showToast = true)
             return true
 
         } catch (e: PendingIntent.CanceledException) {
-            AppLogger.error(TAG, "PendingIntent was cancelled: ${e.message}", showToast = true)
+            AppLogger.error(TAG, "PendingIntent cancelled: ${e.message}", showToast = true)
             return false
         } catch (e: Exception) {
-            AppLogger.error(TAG, "Failed to send reply: ${e.message}", showToast = true)
+            AppLogger.error(TAG, "Failed: ${e.message}", showToast = true)
             return false
         }
     }

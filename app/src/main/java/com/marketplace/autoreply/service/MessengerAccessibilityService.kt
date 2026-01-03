@@ -97,7 +97,19 @@ class MessengerAccessibilityService : AccessibilityService() {
             var inputField = findInputField(rootNode)
 
             // If no input field found, maybe we're on chat list - try to find and click conversation
+            // But NEVER try to find/click chat heads
             if (inputField == null && !triedClickingConversation && retryCount >= 3) {
+                // Skip if sender name contains chat heads related text
+                val senderLower = pending.senderName.lowercase()
+                if (senderLower.contains("chat head") || senderLower.contains("chathead") ||
+                    senderLower.contains("bubble") || senderLower.contains("active")) {
+                    AppLogger.info(TAG, "Skipping chat heads - not a real conversation")
+                    pendingReply = null
+                    pending.onComplete(false)
+                    retryCount = 0
+                    triedClickingConversation = false
+                    return
+                }
                 AppLogger.info(TAG, "Trying to find conversation: ${pending.senderName}")
                 val conversationItem = findConversationBySender(rootNode, pending.senderName)
                 if (conversationItem != null) {
@@ -183,20 +195,41 @@ class MessengerAccessibilityService : AccessibilityService() {
             }
         }
 
-        // Check by resource ID patterns
-        val viewId = node.viewIdResourceName ?: ""
+        // Check by resource ID patterns (expanded for Messenger)
+        val viewId = node.viewIdResourceName?.lowercase() ?: ""
         if (viewId.contains("composer") || viewId.contains("input") ||
             viewId.contains("edit") || viewId.contains("message") ||
-            viewId.contains("text_input") || viewId.contains("entry")) {
+            viewId.contains("text_input") || viewId.contains("entry") ||
+            viewId.contains("comment") || viewId.contains("write") ||
+            viewId.contains("type") || viewId.contains("reply")) {
             if (node.isEditable) {
                 AppLogger.info(TAG, "Found input by ID: $viewId")
                 return node
             }
         }
 
+        // Check for hint text indicating message input
+        val hint = node.hintText?.toString()?.lowercase() ?: ""
+        val text = node.text?.toString()?.lowercase() ?: ""
+        val contentDesc = node.contentDescription?.toString()?.lowercase() ?: ""
+
+        if ((hint.contains("message") || hint.contains("type") || hint.contains("write") ||
+            hint.contains("aa") || hint.contains("إكتب") || hint.contains("ecris") ||
+            contentDesc.contains("message") || contentDesc.contains("compose")) &&
+            node.isEditable) {
+            AppLogger.info(TAG, "Found input by hint/desc: $hint / $contentDesc")
+            return node
+        }
+
         // Check for focusable editable nodes
         if (node.isEditable && node.isFocusable) {
             AppLogger.info(TAG, "Found editable focusable node")
+            return node
+        }
+
+        // Check for any editable node (last resort)
+        if (node.isEditable) {
+            AppLogger.info(TAG, "Found any editable node: class=$className")
             return node
         }
 

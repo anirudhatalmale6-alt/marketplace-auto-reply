@@ -12,8 +12,8 @@ android {
         applicationId = "com.marketplace.autoreply"
         minSdk = 26
         targetSdk = 34
-        versionCode = 9
-        versionName = "1.9"
+        versionCode = 14
+        versionName = "2.4"
     }
 
     signingConfigs {

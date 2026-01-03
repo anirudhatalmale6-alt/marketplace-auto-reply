@@ -63,16 +63,44 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Save button for reply message
+        // Save button for reply messages (5 separate boxes)
         binding.btnSaveMessage.setOnClickListener {
-            val message = binding.editReplyMessage.text.toString().trim()
-            if (message.isNotEmpty()) {
+            val messages = listOf(
+                binding.editMessage1.text.toString().trim(),
+                binding.editMessage2.text.toString().trim(),
+                binding.editMessage3.text.toString().trim(),
+                binding.editMessage4.text.toString().trim(),
+                binding.editMessage5.text.toString().trim()
+            ).filter { it.isNotEmpty() }
+
+            if (messages.isNotEmpty()) {
                 lifecycleScope.launch {
-                    app.preferencesManager.setReplyMessage(message)
-                    Toast.makeText(this@MainActivity, "Message saved", Toast.LENGTH_SHORT).show()
+                    app.preferencesManager.setReplyMessages(messages)
+                    Toast.makeText(this@MainActivity, "${messages.size} message(s) saved", Toast.LENGTH_SHORT).show()
+                    binding.textMessageCount.text = "Active messages: ${messages.size}"
                 }
             } else {
-                Toast.makeText(this, "Please enter a message", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Please enter at least one message", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        // Save button for delay settings
+        binding.btnSaveDelay.setOnClickListener {
+            val minDelay = binding.editMinDelay.text.toString().toIntOrNull() ?: 8
+            val maxDelay = binding.editMaxDelay.text.toString().toIntOrNull() ?: 12
+
+            if (minDelay < 1) {
+                Toast.makeText(this, "Minimum delay must be at least 1 second", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            if (maxDelay < minDelay) {
+                Toast.makeText(this, "Maximum delay must be >= minimum", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            lifecycleScope.launch {
+                app.preferencesManager.setDelayRange(minDelay, maxDelay)
+                Toast.makeText(this@MainActivity, "Delay set: $minDelay-$maxDelay seconds", Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -117,11 +145,40 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Observe reply message
+        // Observe reply messages (load into 5 separate boxes)
         lifecycleScope.launch {
-            app.preferencesManager.replyMessage.collectLatest { message ->
-                if (binding.editReplyMessage.text.toString() != message) {
-                    binding.editReplyMessage.setText(message)
+            app.preferencesManager.replyMessages.collectLatest { messages ->
+                // Load messages into separate boxes
+                val messageBoxes = listOf(
+                    binding.editMessage1,
+                    binding.editMessage2,
+                    binding.editMessage3,
+                    binding.editMessage4,
+                    binding.editMessage5
+                )
+                messageBoxes.forEachIndexed { index, editText ->
+                    val message = messages.getOrNull(index) ?: ""
+                    if (editText.text.toString() != message) {
+                        editText.setText(message)
+                    }
+                }
+                binding.textMessageCount.text = "Active messages: ${messages.size}"
+            }
+        }
+
+        // Observe delay settings
+        lifecycleScope.launch {
+            app.preferencesManager.minDelaySeconds.collectLatest { minDelay ->
+                if (binding.editMinDelay.text.toString() != minDelay.toString()) {
+                    binding.editMinDelay.setText(minDelay.toString())
+                }
+            }
+        }
+
+        lifecycleScope.launch {
+            app.preferencesManager.maxDelaySeconds.collectLatest { maxDelay ->
+                if (binding.editMaxDelay.text.toString() != maxDelay.toString()) {
+                    binding.editMaxDelay.setText(maxDelay.toString())
                 }
             }
         }
