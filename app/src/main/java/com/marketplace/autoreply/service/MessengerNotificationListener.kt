@@ -20,6 +20,11 @@ import kotlin.random.Random
 /**
  * Listens for Messenger notifications and sends auto-replies directly
  * via notification actions - fully in background without opening Messenger.
+ *
+ * Uses 3-stage messaging system:
+ * Stage 1: Welcome messages (no links/phone numbers) - first contact
+ * Stage 2: Follow-up messages (soft intro to move off platform) - after customer replies
+ * Stage 3: WhatsApp/Instagram sharing - only after customer interacted twice
  */
 class MessengerNotificationListener : NotificationListenerService() {
 
@@ -135,13 +140,6 @@ class MessengerNotificationListener : NotificationListenerService() {
         // Create identifier for this sender
         val senderId = createSenderId(title, sbn.packageName)
 
-        // Check if we've already replied to this user (database check)
-        val hasReplied = app.database.repliedUserDao().hasReplied(senderId)
-        if (hasReplied) {
-            AppLogger.info(TAG, "Already replied to $title")
-            return
-        }
-
         // Check if currently processing this sender (prevents duplicate concurrent processing)
         synchronized(processLock) {
             if (processingSet.contains(senderId)) {
@@ -151,6 +149,30 @@ class MessengerNotificationListener : NotificationListenerService() {
             // Mark as processing immediately
             processingSet.add(senderId)
         }
+
+        // Get existing user record to determine current stage
+        val existingUser = app.database.repliedUserDao().getUser(senderId)
+        val currentStage = existingUser?.currentStage ?: 0 // 0 means new user
+
+        // Determine next stage
+        val nextStage = when (currentStage) {
+            0 -> 1  // New user -> Stage 1 (Welcome)
+            1 -> 2  // Was at Stage 1 -> Stage 2 (Follow-up)
+            2 -> 3  // Was at Stage 2 -> Stage 3 (Contact sharing)
+            3 -> {
+                // Already completed all stages - don't reply again
+                AppLogger.info(TAG, "All stages completed for $title")
+                synchronized(processLock) { processingSet.remove(senderId) }
+                return
+            }
+            else -> {
+                AppLogger.info(TAG, "Invalid stage for $title")
+                synchronized(processLock) { processingSet.remove(senderId) }
+                return
+            }
+        }
+
+        AppLogger.info(TAG, "Stage $currentStage -> $nextStage for $title", showToast = true)
 
         // Check available methods
         val hasReplyActionAvailable = NotificationReplyHelper.hasReplyAction(notification)
@@ -163,10 +185,23 @@ class MessengerNotificationListener : NotificationListenerService() {
             return
         }
 
-        // Get random reply message from list
-        val replyMessages = app.preferencesManager.replyMessages.first()
-        val replyMessage = replyMessages.randomOrNull() ?: "Hi! Thanks for your interest."
-        AppLogger.info(TAG, "Selected reply: ${replyMessage.take(30)}...")
+        // Get stage-appropriate message
+        val stage1Messages = app.preferencesManager.stage1Messages.first()
+        val stage2Messages = app.preferencesManager.stage2Messages.first()
+        val whatsappNumber = app.preferencesManager.whatsappNumber.first()
+        val instagramLink = app.preferencesManager.instagramLink.first()
+        val stage3Template = app.preferencesManager.stage3MessageTemplate.first()
+
+        val replyMessage = app.preferencesManager.getMessageForStage(
+            stage = nextStage,
+            stage1List = stage1Messages,
+            stage2List = stage2Messages,
+            whatsapp = whatsappNumber,
+            instagram = instagramLink,
+            template = stage3Template
+        )
+
+        AppLogger.info(TAG, "Stage $nextStage msg: ${replyMessage.take(40)}...", showToast = true)
 
         // Get configurable delay range
         val minDelay = app.preferencesManager.minDelaySeconds.first()
@@ -187,10 +222,9 @@ class MessengerNotificationListener : NotificationListenerService() {
             )
 
             if (directReplySuccess) {
-                // Direct reply was sent - record success
-                // Note: We can't verify if Messenger actually received it
-                recordSuccessfulReply(senderId, title, conversationTitle, sbn.packageName)
-                AppLogger.info(TAG, "Direct reply sent (background)!", showToast = true)
+                // Direct reply was sent - record success with stage
+                recordSuccessfulReply(senderId, title, conversationTitle, sbn.packageName, nextStage, existingUser)
+                AppLogger.info(TAG, "Stage $nextStage sent to: $title", showToast = true)
                 synchronized(processLock) { processingSet.remove(senderId) }
                 return
             }
@@ -244,7 +278,7 @@ class MessengerNotificationListener : NotificationListenerService() {
         }
 
         if (accessibilitySuccess) {
-            recordSuccessfulReply(senderId, title, conversationTitle, sbn.packageName)
+            recordSuccessfulReply(senderId, title, conversationTitle, sbn.packageName, nextStage, existingUser)
         } else {
             AppLogger.error(TAG, "Reply failed - check Accessibility", showToast = true)
         }
@@ -257,18 +291,34 @@ class MessengerNotificationListener : NotificationListenerService() {
         senderId: String,
         senderName: String,
         conversationTitle: String,
-        packageName: String
+        packageName: String,
+        stage: Int,
+        existingUser: RepliedUser?
     ) {
         val app = MarketplaceAutoReplyApp.getInstance()
-        app.database.repliedUserDao().insert(
-            RepliedUser(
-                odentifier = senderId,
-                senderName = senderName,
-                conversationTitle = conversationTitle.ifEmpty { senderName },
-                messengerPackage = packageName
+
+        if (existingUser != null) {
+            // Update existing user with new stage
+            app.database.repliedUserDao().updateStage(
+                identifier = senderId,
+                stage = stage,
+                timestamp = System.currentTimeMillis()
             )
-        )
-        AppLogger.info(TAG, "SUCCESS! Replied to: $senderName", showToast = true)
+            AppLogger.info(TAG, "Updated $senderName to stage $stage", showToast = true)
+        } else {
+            // Insert new user at stage 1
+            app.database.repliedUserDao().insert(
+                RepliedUser(
+                    odentifier = senderId,
+                    senderName = senderName,
+                    conversationTitle = conversationTitle.ifEmpty { senderName },
+                    messengerPackage = packageName,
+                    currentStage = stage,
+                    interactionCount = 1
+                )
+            )
+            AppLogger.info(TAG, "New user $senderName at stage $stage", showToast = true)
+        }
     }
 
     private fun isMessengerPackage(packageName: String): Boolean {

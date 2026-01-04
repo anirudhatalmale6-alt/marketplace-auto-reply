@@ -63,24 +63,66 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Save button for reply messages (5 separate boxes)
-        binding.btnSaveMessage.setOnClickListener {
+        // Save button for Stage 1 messages
+        binding.btnSaveStage1.setOnClickListener {
             val messages = listOf(
-                binding.editMessage1.text.toString().trim(),
-                binding.editMessage2.text.toString().trim(),
-                binding.editMessage3.text.toString().trim(),
-                binding.editMessage4.text.toString().trim(),
-                binding.editMessage5.text.toString().trim()
+                binding.editStage1Msg1.text.toString().trim(),
+                binding.editStage1Msg2.text.toString().trim(),
+                binding.editStage1Msg3.text.toString().trim(),
+                binding.editStage1Msg4.text.toString().trim(),
+                binding.editStage1Msg5.text.toString().trim()
             ).filter { it.isNotEmpty() }
 
             if (messages.isNotEmpty()) {
                 lifecycleScope.launch {
-                    app.preferencesManager.setReplyMessages(messages)
-                    Toast.makeText(this@MainActivity, "${messages.size} message(s) saved", Toast.LENGTH_SHORT).show()
-                    binding.textMessageCount.text = "Active messages: ${messages.size}"
+                    app.preferencesManager.setStage1Messages(messages)
+                    Toast.makeText(this@MainActivity, "Stage 1: ${messages.size} message(s) saved", Toast.LENGTH_SHORT).show()
+                    binding.textStage1Count.text = "Active: ${messages.size}/5"
                 }
             } else {
-                Toast.makeText(this, "Please enter at least one message", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Please enter at least one welcome message", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        // Save button for Stage 2 messages
+        binding.btnSaveStage2.setOnClickListener {
+            val messages = listOf(
+                binding.editStage2Msg1.text.toString().trim(),
+                binding.editStage2Msg2.text.toString().trim(),
+                binding.editStage2Msg3.text.toString().trim(),
+                binding.editStage2Msg4.text.toString().trim(),
+                binding.editStage2Msg5.text.toString().trim()
+            ).filter { it.isNotEmpty() }
+
+            if (messages.isNotEmpty()) {
+                lifecycleScope.launch {
+                    app.preferencesManager.setStage2Messages(messages)
+                    Toast.makeText(this@MainActivity, "Stage 2: ${messages.size} message(s) saved", Toast.LENGTH_SHORT).show()
+                    binding.textStage2Count.text = "Active: ${messages.size}/5"
+                }
+            } else {
+                Toast.makeText(this, "Please enter at least one follow-up message", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        // Save button for Stage 3 (contact info)
+        binding.btnSaveStage3.setOnClickListener {
+            val whatsapp = binding.editWhatsapp.text.toString().trim()
+            val instagram = binding.editInstagram.text.toString().trim()
+            val template = binding.editStage3Template.text.toString().trim()
+
+            if (whatsapp.isEmpty() && instagram.isEmpty()) {
+                Toast.makeText(this, "Please enter WhatsApp number or Instagram", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            lifecycleScope.launch {
+                app.preferencesManager.setWhatsappNumber(whatsapp)
+                app.preferencesManager.setInstagramLink(instagram)
+                if (template.isNotEmpty()) {
+                    app.preferencesManager.setStage3MessageTemplate(template)
+                }
+                Toast.makeText(this@MainActivity, "Contact info saved!", Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -116,12 +158,12 @@ class MainActivity : AppCompatActivity() {
         // Clear history button
         binding.btnClearHistory.setOnClickListener {
             AlertDialog.Builder(this)
-                .setTitle("Clear Reply History")
-                .setMessage("This will allow the app to reply to users who have already received a message. Are you sure?")
-                .setPositiveButton("Clear") { _, _ ->
+                .setTitle("Reset All Conversations")
+                .setMessage("This will reset all conversation stages, allowing the app to start from Stage 1 with all users again. Are you sure?")
+                .setPositiveButton("Reset") { _, _ ->
                     lifecycleScope.launch {
                         app.database.repliedUserDao().clearAll()
-                        Toast.makeText(this@MainActivity, "History cleared", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this@MainActivity, "All conversations reset", Toast.LENGTH_SHORT).show()
                     }
                 }
                 .setNegativeButton("Cancel", null)
@@ -145,24 +187,70 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Observe reply messages (load into 5 separate boxes)
+        // Observe Stage 1 messages
         lifecycleScope.launch {
-            app.preferencesManager.replyMessages.collectLatest { messages ->
-                // Load messages into separate boxes
-                val messageBoxes = listOf(
-                    binding.editMessage1,
-                    binding.editMessage2,
-                    binding.editMessage3,
-                    binding.editMessage4,
-                    binding.editMessage5
+            app.preferencesManager.stage1Messages.collectLatest { messages ->
+                val stage1Boxes = listOf(
+                    binding.editStage1Msg1,
+                    binding.editStage1Msg2,
+                    binding.editStage1Msg3,
+                    binding.editStage1Msg4,
+                    binding.editStage1Msg5
                 )
-                messageBoxes.forEachIndexed { index, editText ->
+                stage1Boxes.forEachIndexed { index, editText ->
                     val message = messages.getOrNull(index) ?: ""
                     if (editText.text.toString() != message) {
                         editText.setText(message)
                     }
                 }
-                binding.textMessageCount.text = "Active messages: ${messages.size}"
+                binding.textStage1Count.text = "Active: ${messages.size}/5"
+            }
+        }
+
+        // Observe Stage 2 messages
+        lifecycleScope.launch {
+            app.preferencesManager.stage2Messages.collectLatest { messages ->
+                val stage2Boxes = listOf(
+                    binding.editStage2Msg1,
+                    binding.editStage2Msg2,
+                    binding.editStage2Msg3,
+                    binding.editStage2Msg4,
+                    binding.editStage2Msg5
+                )
+                stage2Boxes.forEachIndexed { index, editText ->
+                    val message = messages.getOrNull(index) ?: ""
+                    if (editText.text.toString() != message) {
+                        editText.setText(message)
+                    }
+                }
+                binding.textStage2Count.text = "Active: ${messages.size}/5"
+            }
+        }
+
+        // Observe WhatsApp number
+        lifecycleScope.launch {
+            app.preferencesManager.whatsappNumber.collectLatest { number ->
+                if (binding.editWhatsapp.text.toString() != number) {
+                    binding.editWhatsapp.setText(number)
+                }
+            }
+        }
+
+        // Observe Instagram link
+        lifecycleScope.launch {
+            app.preferencesManager.instagramLink.collectLatest { link ->
+                if (binding.editInstagram.text.toString() != link) {
+                    binding.editInstagram.setText(link)
+                }
+            }
+        }
+
+        // Observe Stage 3 template
+        lifecycleScope.launch {
+            app.preferencesManager.stage3MessageTemplate.collectLatest { template ->
+                if (binding.editStage3Template.text.toString() != template) {
+                    binding.editStage3Template.setText(template)
+                }
             }
         }
 
@@ -186,7 +274,7 @@ class MainActivity : AppCompatActivity() {
         // Observe replied count
         lifecycleScope.launch {
             app.database.repliedUserDao().getRepliedCount().collectLatest { count ->
-                binding.textRepliedCount.text = "Users replied to: $count"
+                binding.textRepliedCount.text = "Conversations: $count"
             }
         }
     }
