@@ -25,11 +25,8 @@ class PreferencesManager(private val context: Context) {
         private val STAGE1_MESSAGES = stringPreferencesKey("stage1_messages")
         // Stage 2: Follow-up messages (soft intro to move off platform)
         private val STAGE2_MESSAGES = stringPreferencesKey("stage2_messages")
-        // Stage 3: Contact info
-        private val WHATSAPP_NUMBER = stringPreferencesKey("whatsapp_number")
-        private val INSTAGRAM_LINK = stringPreferencesKey("instagram_link")
-        // Stage 3 message template
-        private val STAGE3_MESSAGE_TEMPLATE = stringPreferencesKey("stage3_message_template")
+        // Stage 3: Contact messages (with WhatsApp/Instagram embedded)
+        private val STAGE3_MESSAGES = stringPreferencesKey("stage3_messages")
 
         private val DEFAULT_MESSAGE = "Hi! Thanks for your interest. I'll get back to you shortly."
         private const val DEFAULT_MIN_DELAY = 8
@@ -63,8 +60,19 @@ class PreferencesManager(private val context: Context) {
             "For a quicker response, we could chat on WhatsApp."
         )
 
-        // Default Stage 3 template
-        private val DEFAULT_STAGE3_TEMPLATE = "Great! Here's my contact:\nWhatsApp: {whatsapp}\nInstagram: {instagram}\nLooking forward to hearing from you!"
+        // Default Stage 3 messages (contact sharing - user will customize with their WhatsApp/Instagram)
+        private val DEFAULT_STAGE3 = listOf(
+            "Great! Here's my WhatsApp: [YOUR_NUMBER]. Feel free to message me there!",
+            "You can reach me on WhatsApp at [YOUR_NUMBER]. Looking forward to chatting!",
+            "My WhatsApp is [YOUR_NUMBER]. Send me a message anytime!",
+            "Contact me on WhatsApp: [YOUR_NUMBER]. I'll send you more photos there!",
+            "Here's my contact - WhatsApp: [YOUR_NUMBER]. Let's finalize the details!",
+            "Feel free to message me on WhatsApp: [YOUR_NUMBER] for faster response.",
+            "You can find me on Instagram: [YOUR_INSTAGRAM]. DM me there!",
+            "My Instagram is [YOUR_INSTAGRAM]. I'll share more details there!",
+            "Contact me on Instagram: [YOUR_INSTAGRAM] for more photos and info.",
+            "Reach out via WhatsApp: [YOUR_NUMBER] or Instagram: [YOUR_INSTAGRAM]!"
+        )
     }
 
     val isAutoReplyEnabled: Flow<Boolean> = context.dataStore.data
@@ -106,17 +114,16 @@ class PreferencesManager(private val context: Context) {
             }
         }
 
-    // WhatsApp number
-    val whatsappNumber: Flow<String> = context.dataStore.data
-        .map { preferences -> preferences[WHATSAPP_NUMBER] ?: "" }
-
-    // Instagram link
-    val instagramLink: Flow<String> = context.dataStore.data
-        .map { preferences -> preferences[INSTAGRAM_LINK] ?: "" }
-
-    // Stage 3 message template
-    val stage3MessageTemplate: Flow<String> = context.dataStore.data
-        .map { preferences -> preferences[STAGE3_MESSAGE_TEMPLATE] ?: DEFAULT_STAGE3_TEMPLATE }
+    // Stage 3: Contact messages (with WhatsApp/Instagram embedded)
+    val stage3Messages: Flow<List<String>> = context.dataStore.data
+        .map { preferences ->
+            val messagesStr = preferences[STAGE3_MESSAGES]
+            if (messagesStr.isNullOrEmpty()) {
+                DEFAULT_STAGE3
+            } else {
+                messagesStr.split("|||").map { it.trim() }.filter { it.isNotEmpty() }
+            }
+        }
 
     val minDelaySeconds: Flow<Int> = context.dataStore.data
         .map { preferences -> preferences[MIN_DELAY_SECONDS] ?: DEFAULT_MIN_DELAY }
@@ -155,21 +162,9 @@ class PreferencesManager(private val context: Context) {
         }
     }
 
-    suspend fun setWhatsappNumber(number: String) {
+    suspend fun setStage3Messages(messages: List<String>) {
         context.dataStore.edit { preferences ->
-            preferences[WHATSAPP_NUMBER] = number
-        }
-    }
-
-    suspend fun setInstagramLink(link: String) {
-        context.dataStore.edit { preferences ->
-            preferences[INSTAGRAM_LINK] = link
-        }
-    }
-
-    suspend fun setStage3MessageTemplate(template: String) {
-        context.dataStore.edit { preferences ->
-            preferences[STAGE3_MESSAGE_TEMPLATE] = template
+            preferences[STAGE3_MESSAGES] = messages.joinToString("|||")
         }
     }
 
@@ -183,27 +178,17 @@ class PreferencesManager(private val context: Context) {
     /**
      * Get the appropriate message for a given stage
      * @param stage 1 = Welcome, 2 = Follow-up, 3 = Contact sharing
-     * @param whatsapp WhatsApp number (for stage 3)
-     * @param instagram Instagram link (for stage 3)
      */
     fun getMessageForStage(
         stage: Int,
         stage1List: List<String>,
         stage2List: List<String>,
-        whatsapp: String,
-        instagram: String,
-        template: String
+        stage3List: List<String>
     ): String {
         return when (stage) {
             1 -> stage1List.randomOrNull() ?: DEFAULT_STAGE1.random()
             2 -> stage2List.randomOrNull() ?: DEFAULT_STAGE2.random()
-            3 -> {
-                // Build stage 3 message with contact info
-                var message = template.ifEmpty { DEFAULT_STAGE3_TEMPLATE }
-                message = message.replace("{whatsapp}", whatsapp.ifEmpty { "Not set" })
-                message = message.replace("{instagram}", instagram.ifEmpty { "Not set" })
-                message
-            }
+            3 -> stage3List.randomOrNull() ?: DEFAULT_STAGE3.random()
             else -> DEFAULT_MESSAGE
         }
     }

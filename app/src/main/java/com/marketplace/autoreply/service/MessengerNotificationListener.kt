@@ -24,7 +24,7 @@ import kotlin.random.Random
  * Uses 3-stage messaging system:
  * Stage 1: Welcome messages (no links/phone numbers) - first contact
  * Stage 2: Follow-up messages (soft intro to move off platform) - after customer replies
- * Stage 3: WhatsApp/Instagram sharing - only after customer interacted twice
+ * Stage 3: Contact messages (10 random messages with WhatsApp/Instagram embedded) - only after customer interacted twice
  */
 class MessengerNotificationListener : NotificationListenerService() {
 
@@ -185,20 +185,16 @@ class MessengerNotificationListener : NotificationListenerService() {
             return
         }
 
-        // Get stage-appropriate message
+        // Get stage-appropriate message (now all 3 stages use random message lists)
         val stage1Messages = app.preferencesManager.stage1Messages.first()
         val stage2Messages = app.preferencesManager.stage2Messages.first()
-        val whatsappNumber = app.preferencesManager.whatsappNumber.first()
-        val instagramLink = app.preferencesManager.instagramLink.first()
-        val stage3Template = app.preferencesManager.stage3MessageTemplate.first()
+        val stage3Messages = app.preferencesManager.stage3Messages.first()
 
         val replyMessage = app.preferencesManager.getMessageForStage(
             stage = nextStage,
             stage1List = stage1Messages,
             stage2List = stage2Messages,
-            whatsapp = whatsappNumber,
-            instagram = instagramLink,
-            template = stage3Template
+            stage3List = stage3Messages
         )
 
         AppLogger.info(TAG, "Stage $nextStage msg: ${replyMessage.take(40)}...", showToast = true)

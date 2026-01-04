@@ -63,66 +63,81 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Save button for Stage 1 messages
+        // Save button for Stage 1 messages (10 messages)
         binding.btnSaveStage1.setOnClickListener {
             val messages = listOf(
                 binding.editStage1Msg1.text.toString().trim(),
                 binding.editStage1Msg2.text.toString().trim(),
                 binding.editStage1Msg3.text.toString().trim(),
                 binding.editStage1Msg4.text.toString().trim(),
-                binding.editStage1Msg5.text.toString().trim()
+                binding.editStage1Msg5.text.toString().trim(),
+                binding.editStage1Msg6.text.toString().trim(),
+                binding.editStage1Msg7.text.toString().trim(),
+                binding.editStage1Msg8.text.toString().trim(),
+                binding.editStage1Msg9.text.toString().trim(),
+                binding.editStage1Msg10.text.toString().trim()
             ).filter { it.isNotEmpty() }
 
             if (messages.isNotEmpty()) {
                 lifecycleScope.launch {
                     app.preferencesManager.setStage1Messages(messages)
                     Toast.makeText(this@MainActivity, "Stage 1: ${messages.size} message(s) saved", Toast.LENGTH_SHORT).show()
-                    binding.textStage1Count.text = "Active: ${messages.size}/5"
+                    binding.textStage1Count.text = "Active: ${messages.size}/10"
                 }
             } else {
                 Toast.makeText(this, "Please enter at least one welcome message", Toast.LENGTH_SHORT).show()
             }
         }
 
-        // Save button for Stage 2 messages
+        // Save button for Stage 2 messages (10 messages)
         binding.btnSaveStage2.setOnClickListener {
             val messages = listOf(
                 binding.editStage2Msg1.text.toString().trim(),
                 binding.editStage2Msg2.text.toString().trim(),
                 binding.editStage2Msg3.text.toString().trim(),
                 binding.editStage2Msg4.text.toString().trim(),
-                binding.editStage2Msg5.text.toString().trim()
+                binding.editStage2Msg5.text.toString().trim(),
+                binding.editStage2Msg6.text.toString().trim(),
+                binding.editStage2Msg7.text.toString().trim(),
+                binding.editStage2Msg8.text.toString().trim(),
+                binding.editStage2Msg9.text.toString().trim(),
+                binding.editStage2Msg10.text.toString().trim()
             ).filter { it.isNotEmpty() }
 
             if (messages.isNotEmpty()) {
                 lifecycleScope.launch {
                     app.preferencesManager.setStage2Messages(messages)
                     Toast.makeText(this@MainActivity, "Stage 2: ${messages.size} message(s) saved", Toast.LENGTH_SHORT).show()
-                    binding.textStage2Count.text = "Active: ${messages.size}/5"
+                    binding.textStage2Count.text = "Active: ${messages.size}/10"
                 }
             } else {
                 Toast.makeText(this, "Please enter at least one follow-up message", Toast.LENGTH_SHORT).show()
             }
         }
 
-        // Save button for Stage 3 (contact info)
+        // Save button for Stage 3 messages (10 messages with contact info)
         binding.btnSaveStage3.setOnClickListener {
-            val whatsapp = binding.editWhatsapp.text.toString().trim()
-            val instagram = binding.editInstagram.text.toString().trim()
-            val template = binding.editStage3Template.text.toString().trim()
+            val messages = listOf(
+                binding.editStage3Msg1.text.toString().trim(),
+                binding.editStage3Msg2.text.toString().trim(),
+                binding.editStage3Msg3.text.toString().trim(),
+                binding.editStage3Msg4.text.toString().trim(),
+                binding.editStage3Msg5.text.toString().trim(),
+                binding.editStage3Msg6.text.toString().trim(),
+                binding.editStage3Msg7.text.toString().trim(),
+                binding.editStage3Msg8.text.toString().trim(),
+                binding.editStage3Msg9.text.toString().trim(),
+                binding.editStage3Msg10.text.toString().trim()
+            ).filter { it.isNotEmpty() }
 
-            if (whatsapp.isEmpty() && instagram.isEmpty()) {
-                Toast.makeText(this, "Please enter WhatsApp number or Instagram", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
-
-            lifecycleScope.launch {
-                app.preferencesManager.setWhatsappNumber(whatsapp)
-                app.preferencesManager.setInstagramLink(instagram)
-                if (template.isNotEmpty()) {
-                    app.preferencesManager.setStage3MessageTemplate(template)
+            if (messages.isNotEmpty()) {
+                lifecycleScope.launch {
+                    app.preferencesManager.setStage3Messages(messages)
+                    Toast.makeText(this@MainActivity, "Stage 3: ${messages.size} message(s) saved", Toast.LENGTH_SHORT).show()
+                    binding.textStage3Count.text = "Active: ${messages.size}/10"
                 }
-                Toast.makeText(this@MainActivity, "Contact info saved!", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(this, "Please enter at least one contact message", Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -187,7 +202,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Observe Stage 1 messages
+        // Observe Stage 1 messages (10 messages)
         lifecycleScope.launch {
             app.preferencesManager.stage1Messages.collectLatest { messages ->
                 val stage1Boxes = listOf(
@@ -195,7 +210,12 @@ class MainActivity : AppCompatActivity() {
                     binding.editStage1Msg2,
                     binding.editStage1Msg3,
                     binding.editStage1Msg4,
-                    binding.editStage1Msg5
+                    binding.editStage1Msg5,
+                    binding.editStage1Msg6,
+                    binding.editStage1Msg7,
+                    binding.editStage1Msg8,
+                    binding.editStage1Msg9,
+                    binding.editStage1Msg10
                 )
                 stage1Boxes.forEachIndexed { index, editText ->
                     val message = messages.getOrNull(index) ?: ""
@@ -203,11 +223,11 @@ class MainActivity : AppCompatActivity() {
                         editText.setText(message)
                     }
                 }
-                binding.textStage1Count.text = "Active: ${messages.size}/5"
+                binding.textStage1Count.text = "Active: ${messages.size}/10"
             }
         }
 
-        // Observe Stage 2 messages
+        // Observe Stage 2 messages (10 messages)
         lifecycleScope.launch {
             app.preferencesManager.stage2Messages.collectLatest { messages ->
                 val stage2Boxes = listOf(
@@ -215,7 +235,12 @@ class MainActivity : AppCompatActivity() {
                     binding.editStage2Msg2,
                     binding.editStage2Msg3,
                     binding.editStage2Msg4,
-                    binding.editStage2Msg5
+                    binding.editStage2Msg5,
+                    binding.editStage2Msg6,
+                    binding.editStage2Msg7,
+                    binding.editStage2Msg8,
+                    binding.editStage2Msg9,
+                    binding.editStage2Msg10
                 )
                 stage2Boxes.forEachIndexed { index, editText ->
                     val message = messages.getOrNull(index) ?: ""
@@ -223,34 +248,32 @@ class MainActivity : AppCompatActivity() {
                         editText.setText(message)
                     }
                 }
-                binding.textStage2Count.text = "Active: ${messages.size}/5"
+                binding.textStage2Count.text = "Active: ${messages.size}/10"
             }
         }
 
-        // Observe WhatsApp number
+        // Observe Stage 3 messages (10 messages with contact info)
         lifecycleScope.launch {
-            app.preferencesManager.whatsappNumber.collectLatest { number ->
-                if (binding.editWhatsapp.text.toString() != number) {
-                    binding.editWhatsapp.setText(number)
+            app.preferencesManager.stage3Messages.collectLatest { messages ->
+                val stage3Boxes = listOf(
+                    binding.editStage3Msg1,
+                    binding.editStage3Msg2,
+                    binding.editStage3Msg3,
+                    binding.editStage3Msg4,
+                    binding.editStage3Msg5,
+                    binding.editStage3Msg6,
+                    binding.editStage3Msg7,
+                    binding.editStage3Msg8,
+                    binding.editStage3Msg9,
+                    binding.editStage3Msg10
+                )
+                stage3Boxes.forEachIndexed { index, editText ->
+                    val message = messages.getOrNull(index) ?: ""
+                    if (editText.text.toString() != message) {
+                        editText.setText(message)
+                    }
                 }
-            }
-        }
-
-        // Observe Instagram link
-        lifecycleScope.launch {
-            app.preferencesManager.instagramLink.collectLatest { link ->
-                if (binding.editInstagram.text.toString() != link) {
-                    binding.editInstagram.setText(link)
-                }
-            }
-        }
-
-        // Observe Stage 3 template
-        lifecycleScope.launch {
-            app.preferencesManager.stage3MessageTemplate.collectLatest { template ->
-                if (binding.editStage3Template.text.toString() != template) {
-                    binding.editStage3Template.setText(template)
-                }
+                binding.textStage3Count.text = "Active: ${messages.size}/10"
             }
         }
 
